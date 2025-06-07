@@ -5,9 +5,12 @@ using Fusion.Sockets;
 using System.Collections.Generic;
 using System;
 using Random = UnityEngine.Random;
+using TMPro;
+using System.Collections;
 
 public class GestorRed : MonoBehaviour, INetworkRunnerCallbacks
 {
+
     [Header("Configuración")]
     public NetworkPrefabRef prefabVehiculo;
     public NetworkPrefabRef[] prefabsAdicionales;
@@ -23,6 +26,11 @@ public class GestorRed : MonoBehaviour, INetworkRunnerCallbacks
     private CapturaEntrada inputHandler;
     private bool inputHandlerRegistrado = false;
     private bool ignoreInputsFromGestorRed = true; // Bandera para ignorar inputs
+
+    [Header("UI")]
+    public Canvas CanvasLoading;
+    public Canvas PlayerInterface;
+    public TextMeshProUGUI MessageLoading;
 
     void Start()
     {
@@ -44,7 +52,15 @@ public class GestorRed : MonoBehaviour, INetworkRunnerCallbacks
         // Iniciar automáticamente
         if (inicioAutomatico)
         {
-            IniciarJuego(GameMode.Host);
+            if (ConfigManager.Instance.Mode == GameMode.Client)
+            {
+                MessageLoading.text = "Conectando al servidor..";
+            }
+            else if (ConfigManager.Instance.Mode == GameMode.Host)
+            {
+                MessageLoading.text = "Creando partida..";
+            }
+            IniciarJuego(ConfigManager.Instance.Mode);
         }
     }
 
@@ -114,6 +130,8 @@ public class GestorRed : MonoBehaviour, INetworkRunnerCallbacks
 
             if (resultado.Ok)
             {
+                CanvasLoading.enabled = false;
+                PlayerInterface.enabled = true;
                 Debug.Log($"Juego en red iniciado correctamente. Sala: {nombreSala}, Modo: {_runner.GameMode}");
                 Debug.Log($"LocalPlayer: {_runner.LocalPlayer}, IsServer: {_runner.IsServer}, IsClient: {_runner.IsClient}");
 
@@ -130,16 +148,35 @@ public class GestorRed : MonoBehaviour, INetworkRunnerCallbacks
                 // Verificar las asignaciones de prefabs
                 VerificarPrefabs();
             }
-            else
-            {
-                Debug.LogError($"Error al iniciar el juego: {resultado.ShutdownReason}");
-            }
+                else
+                {
+                    if (ConfigManager.Instance.Mode == GameMode.Client)
+                    {
+                        MessageLoading.text = "Ups... no hay partidas disponibles.\n¡Se el primero en crear una!";
+                    }
+                    else if (ConfigManager.Instance.Mode == GameMode.Host)
+                    {
+                        MessageLoading.text = "Ya hay una sala disponible!\nPuedes unirte para comenzar a jugar.";
+                    }
+
+                    Debug.LogError($"Error al iniciar el juego: {resultado.ShutdownReason}");
+
+                    // Inicia la espera para cambiar de escena
+                    StartCoroutine(VolverAlMenu());
+                }
         }
         catch (Exception e)
         {
             Debug.LogError($"Excepción al iniciar el juego en red: {e.Message}\n{e.StackTrace}");
         }
     }
+
+        private IEnumerator VolverAlMenu()
+        {
+            yield return new WaitForSeconds(3f);
+            SceneManager.LoadScene("Menu Setup");
+        }
+
 
     private void VerificarPrefabs()
     {
