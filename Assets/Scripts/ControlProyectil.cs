@@ -220,7 +220,7 @@ public class ControlProyectil : NetworkBehaviour
             // Verificar límites de mapa (opcional, solo servidor)
             if (HasStateAuthority)
             {
-                float maxDistancia = 100f; // Ajustar según el tamaño de tu mapa
+                float maxDistancia = 3000f; // Ajustar según el tamaño de tu mapa
                 if (transform.position.magnitude > maxDistancia)
                 {
                     Debug.Log($"[LÍMITE] Proyectil ID:{Object.Id} salió del área de juego. Destruyendo");
@@ -259,36 +259,39 @@ public class ControlProyectil : NetworkBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        // Debug para TODOS los clientes, incluso si no tienen autoridad
-        Debug.Log($"[COLISIÓN DETECTADA] Proyectil colisionó con: {other.gameObject.name}, Layer: {LayerMask.LayerToName(other.gameObject.layer)}");
-
-        // Solo el servidor procesa la colisión
-        if (!HasStateAuthority || haExplotado) return;
-
-        Debug.Log($"[SERVIDOR] Procesando colisión con: {other.gameObject.name}");
-
-        // Comprobar si colisiona con un vehículo
-        var vehiculo = other.GetComponentInParent<ControlVehiculo>();
-
-        if (vehiculo != null)
+        if (!other.CompareTag("Limit"))
         {
-            Debug.Log($"[SERVIDOR] Colisión con vehículo: ID={vehiculo.Object.Id}, InputAuth={vehiculo.Object.InputAuthority}, Propietario={Propietario}");
+            // Debug para TODOS los clientes, incluso si no tienen autoridad
+            Debug.Log($"[COLISIÓN DETECTADA] Proyectil colisionó con: {other.gameObject.name}, Layer: {LayerMask.LayerToName(other.gameObject.layer)}");
 
-            // No dañar al propietario
-            if (vehiculo.Object.InputAuthority == Propietario)
+            // Solo el servidor procesa la colisión
+            if (!HasStateAuthority || haExplotado) return;
+
+            Debug.Log($"[SERVIDOR] Procesando colisión con: {other.gameObject.name}");
+
+            // Comprobar si colisiona con un vehículo
+            var vehiculo = other.GetComponentInParent<ControlVehiculo>();
+
+            if (vehiculo != null)
             {
-                Debug.Log("[SERVIDOR] Ignorando colisión con propietario");
-                return;
+                Debug.Log($"[SERVIDOR] Colisión con vehículo: ID={vehiculo.Object.Id}, InputAuth={vehiculo.Object.InputAuthority}, Propietario={Propietario}");
+
+                // No dañar al propietario
+                if (vehiculo.Object.InputAuthority == Propietario)
+                {
+                    Debug.Log("[SERVIDOR] Ignorando colisión con propietario");
+                    return;
+                }
+
+                // Aplicar daño directo (además de la explosión)
+                Debug.Log($"[SERVIDOR] Aplicando daño directo al vehículo {vehiculo.Object.InputAuthority}");
+                vehiculo.RecibirDanoRpc(dano * 0.5f, Propietario);
             }
 
-            // Aplicar daño directo (además de la explosión)
-            Debug.Log($"[SERVIDOR] Aplicando daño directo al vehículo {vehiculo.Object.InputAuthority}");
-            vehiculo.RecibirDanoRpc(dano * 0.5f, Propietario);
+            // Explotar para daño en área
+            Debug.Log($"[SERVIDOR] Explotando proyectil en posición {transform.position}");
+            ExplotarProyectil(transform.position, true);
         }
-
-        // Explotar para daño en área
-        Debug.Log($"[SERVIDOR] Explotando proyectil en posición {transform.position}");
-        ExplotarProyectil(transform.position, true);
     }
 
     private void ExplotarProyectil(Vector3 posicionExplosion, bool impacto)
