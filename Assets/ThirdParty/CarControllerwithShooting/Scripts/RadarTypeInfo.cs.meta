@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 6942cd6fc9c894224b1b1f627d5064e3
+timeCreated: 1465312104
+licenseType: Store
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 246095
+  packageName: Car Controller with Shooting Capabilities for Both Mobile and PC
+  packageVersion: 2.0
+  assetPath: Assets/CarControllerwithShooting/Scripts/RadarTypeInfo.cs
+  uploadId: 732804
