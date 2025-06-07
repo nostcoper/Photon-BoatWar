@@ -173,6 +173,7 @@ public class GestorRed : MonoBehaviour, INetworkRunnerCallbacks
 
         private IEnumerator VolverAlMenu()
         {
+        Debug.Log("yendo aaaaaaaaa mnuuu");
             yield return new WaitForSeconds(3f);
             SceneManager.LoadScene("Menu Setup");
         }
