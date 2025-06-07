@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 53065c02d2fe44388b2c5066d666cf70
+timeCreated: 1449916239
+licenseType: Store
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 246095
+  packageName: Car Controller with Shooting Capabilities for Both Mobile and PC
+  packageVersion: 2.0
+  assetPath: Assets/CarControllerwithShooting/Scripts/GyroscopeViewController.cs
+  uploadId: 732804
