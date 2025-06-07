@@ -44,7 +44,7 @@ public class GestorRed : MonoBehaviour, INetworkRunnerCallbacks
         // Iniciar automáticamente
         if (inicioAutomatico)
         {
-            IniciarJuego(GameMode.AutoHostOrClient);
+            IniciarJuego(GameMode.Host);
         }
     }
 

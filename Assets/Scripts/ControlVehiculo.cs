@@ -13,8 +13,9 @@ public struct DatosEntrada : INetworkInput
 public class ControlVehiculo : NetworkBehaviour
 {
     [Header("Configuración del Movimiento")]
-    public float velocidad = 100f; // Reducido drásticamente para un movimiento más lento
-    public float rotacion = 30f; // Reducido a la mitad para una rotación más controlada
+    public float accelerateSpeed = 500f; // Velocidad de aceleración (equivale a velocidad)
+    public float turnSpeed = 100f; // Velocidad de giro (equivale a rotacion)
+    public float brakeForce = 0.1f; // Fuerza de frenado automático
     public float tiempoEntreLogMovimiento = 1f;
 
     [Header("Sistema de Vida")]
@@ -36,7 +37,7 @@ public class ControlVehiculo : NetworkBehaviour
     [Header("Configuración Física")]
     public float alturaFija = 0.5f;
     public LayerMask capasSuelo;
-    public float fuerzaMovimiento = 1f; // Reducido drásticamente
+    public float fuerzaMovimiento = 100f;
 
     private Rigidbody rb;
     private NetworkTransform networkTransform;
@@ -51,7 +52,6 @@ public class ControlVehiculo : NetworkBehaviour
 
     public override void Spawned()
     {
-        // Código existente para Spawned
         rb = GetComponent<Rigidbody>();
         networkTransform = GetComponent<NetworkTransform>();
         vehicleCollider = GetComponent<Collider>();
@@ -72,20 +72,23 @@ public class ControlVehiculo : NetworkBehaviour
         if (rb != null)
         {
             rb.isKinematic = false;
+            // CORREGIDO: Permitir movimiento en Y para evitar problemas de física
             rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
-            rb.mass = 1000f;
-            rb.linearDamping = 5f; // Aumentado para movimiento más lento
-            rb.angularDamping = 10f; // Aumentado para rotación más lenta
-            rb.useGravity = !usoModoForzado;
+
+            rb.mass = 1f;
+            rb.linearDamping = 2f; // Aumentado para control
+            rb.angularDamping = 2f; // Aumentado para rotación controlada
+
+            // CORREGIDO: Mantener gravedad activada
+            rb.useGravity = false;
         }
         else
         {
             Debug.LogError("¡CRÍTICO! Rigidbody no encontrado en el vehículo. Agregando uno...");
             rb = gameObject.AddComponent<Rigidbody>();
-            rb.mass = 1000f;
+            rb.mass = 1f;
             rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
         }
-
 
         // Configurar collider
         if (vehicleCollider != null)
@@ -135,11 +138,9 @@ public class ControlVehiculo : NetworkBehaviour
             puntoDisparo = puntoDisparoGO.transform;
         }
 
-        // Posición inicial fija
+        // CORREGIDO: Configuración inicial simplificada
         if (HasStateAuthority)
         {
-            transform.position = new Vector3(transform.position.x, alturaFija, transform.position.z);
-
             if (rb != null)
             {
                 rb.linearVelocity = Vector3.zero;
@@ -154,114 +155,59 @@ public class ControlVehiculo : NetworkBehaviour
             capasSuelo = 1 << 0; // Layer Default
         }
 
-        // Activar el modo forzado
-        ActivarModoForzado();
-
         inicializado = true;
+
+        // CORREGIDO: Configurar valores de movimiento aquí
+        accelerateSpeed = 5000f;
+        turnSpeed = 1000f;
+        brakeForce = 0.1f;
     }
-
-    private void ActivarModoForzado()
-    {
-        usoModoForzado = true;
-        Debug.Log("Activando modo forzado de posición para el vehículo");
-
-        if (rb != null)
-        {
-            rb.useGravity = false;
-        }
-    }
-
-    private void DiagnosticarColisiones()
-    {
-        if (!HasStateAuthority) return;
-
-        Vector3[] direcciones = new Vector3[] {
-            Vector3.down,
-            new Vector3(0.5f, -1, 0).normalized,
-            new Vector3(-0.5f, -1, 0).normalized,
-            new Vector3(0, -1, 0.5f).normalized,
-            new Vector3(0, -1, -0.5f).normalized
-        };
-
-        string resultados = "Diagnóstico de raycast: ";
-        int hitCount = 0;
-
-        foreach (var dir in direcciones)
-        {
-            RaycastHit hit;
-            bool didHit = Physics.Raycast(transform.position, dir, out hit, 10f, capasSuelo);
-
-            if (didHit)
-            {
-                hitCount++;
-                resultados += $"Hit: {hit.collider.gameObject.name} a {hit.distance}m, ";
-            }
-
-            Debug.DrawRay(transform.position, dir * 10f, didHit ? Color.green : Color.red, 1f);
-        }
-
-        resultados += $"Total hits: {hitCount}/5";
-        Debug.Log(resultados);
-    }
-
-    private void Start()
-    {
-      velocidad = 100f; // Reducido drásticamente para un movimiento más lento
-      rotacion = 100f; // Reducido a la mitad para una rotación más controlada
-      tiempoEntreLogMovimiento = 1f;
-    }
-
 
     public override void FixedUpdateNetwork()
     {
         if (!inicializado || EstaMuerto) return;
 
-        // Modo forzado para mantener altura constante
+        // CORREGIDO: Simplificar el control de altura
         if (usoModoForzado && HasStateAuthority)
         {
-            Vector3 pos = transform.position;
-            transform.position = new Vector3(pos.x, alturaFija, pos.z);
-
-            if (rb != null && Mathf.Abs(rb.linearVelocity.y) > 0.1f)
+            // Solo controlar altura si está muy lejos del suelo
+            if (transform.position.y < alturaFija - 1f || transform.position.y > alturaFija + 2f)
             {
-                Vector3 vel = rb.linearVelocity;
-                vel.y = 0;
-                rb.linearVelocity = vel;
-            }
-
-            if (Time.frameCount % 300 == 0)
-            {
-                Debug.Log($"Modo forzado: Pos={transform.position}, Vel={(rb != null ? rb.linearVelocity : Vector3.zero)}");
+                Vector3 pos = transform.position;
+                pos.y = alturaFija;
+                transform.position = pos;
             }
         }
 
         // Obtener inputs
         if (GetInput<DatosEntrada>(out var input))
         {
-            // Sistema de disparo - IMPORTANTE: Ya no usamos RPC directamente aquí
-            // En su lugar, establecemos una variable Networked que el estado observa
+            // CORREGIDO: Agregar debug para verificar inputs
+            if (Mathf.Abs(input.Aceleracion) > 0.1f || Mathf.Abs(input.Direccion) > 0.1f)
+            {
+                Debug.Log($"[INPUT] Aceleración: {input.Aceleracion}, Dirección: {input.Direccion}");
+            }
+
+            // Sistema de disparo
             if (input.Disparar && CooldownDisparo.ExpiredOrNotRunning(Runner))
             {
                 DisparoSolicitado = true;
                 CooldownDisparo = TickTimer.CreateFromSeconds(Runner, tiempoEntreDisparo);
             }
+            
             if (HasStateAuthority)
             {
                 if (DisparoSolicitado)
                 {
-                    // IMPORTANTE: puntoDisparo nunca null
                     Vector3 dir = puntoDisparo != null ? puntoDisparo.forward : transform.forward;
                     Vector3 pos = puntoDisparo != null ? puntoDisparo.position : transform.position + transform.forward * 2f;
                     DispararProyectil(dir, pos);
                     DisparoSolicitado = false;
                 }
+                
+                // CORREGIDO: Mover el vehículo siempre que haya input
                 MoverVehiculo(input.Aceleracion, input.Direccion);
             }
-        }
-        else if (HasInputAuthority)
-        {
-            // Si tenemos input authority pero no recibimos inputs, es un problema
-            Debug.LogWarning("Tenemos InputAuthority pero no recibimos inputs!");
         }
 
         // Verificar si el vehículo cayó del mundo
@@ -281,69 +227,63 @@ public class ControlVehiculo : NetworkBehaviour
         }
     }
 
-    // Método separado para mover el vehículo - velocidad drasticamente reducida
+    // CORREGIDO: Método de movimiento simplificado y funcional
     private void MoverVehiculo(float aceleracion, float direccion)
     {
-        // Movimiento muy suave
-        // MÉTODO 1: Movimiento directo usando Transform (muy reducido)
-        if (Mathf.Abs(aceleracion) > 0.1f)
+        if (rb == null) return;
+
+        // ROTACIÓN (Torque en Y) - Simula el timón del barco
+        if (Mathf.Abs(direccion) > 0.01f)
         {
-            // Movimiento directo muy lento
-            Vector3 movimientoDirecto = transform.forward * aceleracion * velocidad * Runner.DeltaTime * 0.1f;
-            transform.position += movimientoDirecto;
+            rb.AddTorque(0f, direccion * turnSpeed * Runner.DeltaTime, 0f);
+            Debug.Log($"[ROTACIÓN] Aplicando torque: {direccion * turnSpeed * Runner.DeltaTime}");
         }
 
-        // MÉTODO 2: Usar Rigidbody si está disponible (fuerza mínima)
-        if (rb != null && Mathf.Abs(aceleracion) > 0.1f)
+        // MOVIMIENTO HACIA ADELANTE/ATRÁS - Simula los motores del barco
+        if (Mathf.Abs(aceleracion) > 0.01f)
         {
-            // Aplicar fuerza mínima al Rigidbody
-            Vector3 direccionMovimiento = transform.forward * aceleracion * fuerzaMovimiento * 0.1f;
-            direccionMovimiento.y = 0; // Eliminar componente vertical
+            rb.AddForce(transform.forward * aceleracion * accelerateSpeed * Runner.DeltaTime);
+            Debug.Log($"[MOVIMIENTO] Aplicando fuerza: {aceleracion * accelerateSpeed * Runner.DeltaTime}, Velocidad actual: {rb.linearVelocity.magnitude}");
+        }
+        else
+        {
+            // FRENADO AUTOMÁTICO - Simula la resistencia del agua
+            Vector3 horizontalVelocity = rb.linearVelocity;
+            horizontalVelocity.y = 0; // Mantener velocidad vertical intacta
 
-            // Usar ForceMode.Force para más suavidad
-            rb.AddForce(direccionMovimiento, ForceMode.Force);
-
-            // Limitar la velocidad máxima del vehículo
-            if (rb.linearVelocity.magnitude > velocidad)
+            Vector3 fuerzaFrenado = -horizontalVelocity * brakeForce;
+            rb.AddForce(fuerzaFrenado, ForceMode.Acceleration);
+            
+            if (horizontalVelocity.magnitude > 0.1f)
             {
-                rb.linearVelocity = rb.linearVelocity.normalized * velocidad * 0.5f;
+                Debug.Log($"[FRENADO] Aplicando resistencia: {fuerzaFrenado.magnitude:F2}");
             }
         }
 
-        // Rotación muy lenta
-        if (Mathf.Abs(direccion) > 0.1f)
-        {
-            float rotacionAplicada = direccion * rotacion * Runner.DeltaTime * 0.5f;
-            transform.Rotate(0f, rotacionAplicada, 0f);
-        }
-
-        // Depuración para confirmar movimiento
+        // Log de movimiento
         if ((Mathf.Abs(aceleracion) > 0.1f || Mathf.Abs(direccion) > 0.1f) &&
             Time.time - ultimoLogMovimiento > tiempoEntreLogMovimiento)
         {
             float distanciaRecorrida = Vector3.Distance(transform.position, ultimaPosicion);
-            if (distanciaRecorrida > 0.1f)
-            {
-                Debug.Log($"🚗 Vehículo {Object.Id} - Movimiento: {distanciaRecorrida:F2}m, Vel: {(distanciaRecorrida / tiempoEntreLogMovimiento):F2}m/s");
-                ultimaPosicion = transform.position;
-                ultimoLogMovimiento = Time.time;
-            }
+            Debug.Log($"🚗 Vehículo {Object.Id} - Distancia: {distanciaRecorrida:F2}m, Velocidad: {rb.linearVelocity.magnitude:F2}m/s");
+            ultimaPosicion = transform.position;
+            ultimoLogMovimiento = Time.time;
         }
     }
 
-    // ¡IMPORTANTE! Reemplazamos el método RPC por un método directo
+    // ELIMINADO: El método Start() que sobreescribía los valores
+    // private void Start() { ... }
+
     private void DispararProyectil(Vector3 direccion, Vector3 posicion)
     {
         if (!prefabProyectil.IsValid || !HasStateAuthority) return;
 
-        // Asegúrate de que se muestre algún efecto visual
         if (efectoDisparo != null)
         {
             var efecto = Instantiate(efectoDisparo, posicion, Quaternion.LookRotation(direccion));
             Destroy(efecto, 2f);
         }
 
-        // Spawnear el proyectil con todos los datos correctos
         Runner.Spawn(prefabProyectil, posicion, Quaternion.LookRotation(direccion), Object.InputAuthority, (runner, obj) => {
             var c = obj.GetComponent<ControlProyectil>();
             if (c != null)
@@ -351,8 +291,6 @@ public class ControlVehiculo : NetworkBehaviour
                 c.Propietario = Object.InputAuthority;
                 c.Direccion = direccion.normalized;
                 c.PosicionInicial = posicion;
-
-                // Añadir log para verificar la inicialización
                 Debug.Log($"Inicializando proyectil - Propietario: {c.Propietario}, Dirección: {c.Direccion}, Posición: {c.PosicionInicial}");
             }
             else
@@ -361,11 +299,9 @@ public class ControlVehiculo : NetworkBehaviour
             }
         });
 
-        // Informar a todos los clientes sobre el disparo
         MostrarEfectoDisparoRpc();
     }
 
-    // Mantenemos el RPC para los efectos de disparo
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
     private void MostrarEfectoDisparoRpc()
     {
@@ -398,7 +334,6 @@ public class ControlVehiculo : NetworkBehaviour
                     ultimoAtacante = atacante;
                 }
 
-                // Notificar a todos los clientes del daño
                 CambiarColorDanoRpc();
 
                 if (Vida <= 0)
@@ -448,10 +383,7 @@ public class ControlVehiculo : NetworkBehaviour
                 }
             }
 
-            // Notificar a todos los clientes sobre la muerte
             MorirRpc(atacante);
-
-            // Programar respawn usando coroutine de Fusion en lugar de Invoke
             Debug.Log($"[RESPAWN] Programando respawn de {Object.InputAuthority} en 3 segundos");
             Runner.StartCoroutine(RespawnDespuesDeTiempo());
         }
@@ -477,26 +409,21 @@ public class ControlVehiculo : NetworkBehaviour
 
         Debug.Log($"[MUERTE-RPC] 💀 {Object.InputAuthority} fue eliminado por {atacante}");
 
-        // Desactivar movimiento y controles
         if (rb != null)
         {
             rb.isKinematic = true;
         }
 
-        // Efecto visual de muerte
         if (efectoMuerte != null)
         {
             var efecto = Instantiate(efectoMuerte, transform.position, transform.rotation);
             Destroy(efecto, 5f);
         }
 
-        // Cambiar apariencia del vehículo
         if (vehicleRenderer != null)
         {
-            // Color gris oscuro para indicar muerte
             vehicleRenderer.material.color = new Color(0.3f, 0.3f, 0.3f);
         }
-        
     }
 
     private void Respawn()
@@ -505,29 +432,24 @@ public class ControlVehiculo : NetworkBehaviour
         {
             Debug.Log($"[RESPAWN] Iniciando respawn de {Object.InputAuthority}");
 
-            // Restaurar vida y estado
             Vida = 100f;
             EstaMuerto = false;
 
-           // Generar posición aleatoria más amplia
-           Vector3 nuevaPosicion = new Vector3(
-           UnityEngine.Random.Range(-20f, 20f),
-           alturaFija,
-           UnityEngine.Random.Range(-20f, 20f)
-       );
+            Vector3 nuevaPosicion = new Vector3(
+                UnityEngine.Random.Range(-20f, 20f),
+                alturaFija,
+                UnityEngine.Random.Range(-20f, 20f)
+            );
 
-            // Asegurar que está por encima del suelo
             RaycastHit hit;
             if (Physics.Raycast(nuevaPosicion + Vector3.up * 10f, Vector3.down, out hit, 20f, capasSuelo))
             {
                 nuevaPosicion.y = hit.point.y + alturaFija;
             }
 
-            // Aplicar posición y rotación aleatoria
             transform.position = nuevaPosicion;
             transform.rotation = Quaternion.Euler(0, UnityEngine.Random.Range(0, 360), 0);
 
-            // Resetear físicas
             if (rb != null)
             {
                 rb.isKinematic = false;
@@ -536,8 +458,6 @@ public class ControlVehiculo : NetworkBehaviour
             }
 
             Debug.Log($"[RESPAWN] ✅ {Object.InputAuthority} ha respawneado en {nuevaPosicion}");
-
-            // Notificar a todos los clientes del respawn
             RespawnRpc();
         }
     }
@@ -547,46 +467,23 @@ public class ControlVehiculo : NetworkBehaviour
     {
         Debug.Log($"[RESPAWN-RPC] Vehículo {Object.InputAuthority} respawneado");
 
-        // Restaurar apariencia visual
         if (vehicleRenderer != null)
         {
-            // Restaurar color original (verde para jugador local, gris para otros)
             vehicleRenderer.material.color = HasInputAuthority ? Color.green : Color.gray;
         }
 
-        // Efectos visuales de respawn
         StartCoroutine(EfectoRespawn());
-    }
-
-    private IEnumerator DescongelarDespuesDeRespawn()
-    {
-        yield return new WaitForSeconds(0.5f);
-        if (rb != null)
-        {
-            rb.isKinematic = false;
-        }
-    }
-
-    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-    private void NotificarRespawnRpc()
-    {
-        // Efectos visuales de respawn si los tienes
-        if (vehicleRenderer != null)
-        {
-            StartCoroutine(EfectoRespawn());
-        }
     }
 
     private IEnumerator EfectoRespawn()
     {
-        // Efecto de parpadeo para indicar respawn
         if (vehicleRenderer == null) yield break;
 
         Color colorOriginal = vehicleRenderer.material.color;
 
         for (int i = 0; i < 5; i++)
         {
-            vehicleRenderer.material.color = new Color(0, 1, 0, 0.5f); // Verde transparente
+            vehicleRenderer.material.color = new Color(0, 1, 0, 0.5f);
             yield return new WaitForSeconds(0.1f);
             vehicleRenderer.material.color = colorOriginal;
             yield return new WaitForSeconds(0.1f);

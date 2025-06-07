@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1bca195719fa4848827a140a45f4ce4, type: 3}
+  m_Name: Long Range Bullet
+  m_EditorClassIdentifier: 
+  Name: 
+  powerUpIcon: {fileID: 21300000, guid: dde98bd28b250e14b9f1d3a3cc391d98, type: 3}
+  probability: 0.3
+  ammo: 1
+  projectilePrefab: {fileID: 8303147819660016373, guid: f709e763963b2254190d2101a9d85b95, type: 3}

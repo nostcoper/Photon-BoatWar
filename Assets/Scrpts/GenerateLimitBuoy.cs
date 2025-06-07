@@ -7,7 +7,6 @@ public class GenerateLimitBoy : MonoBehaviour
 {
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     public SplineContainer spline;
-    public GameObject LimitZoneObject;
     public int numBuoys;
     public Vector3 BuoyScale;
 

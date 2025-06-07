@@ -2,9 +2,8 @@ using System.Security.Cryptography.X509Certificates;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using Fusion;
 
-public class BoatController : NetworkBehaviour
+public class BoatController : MonoBehaviour
 {
     public float turnSpeed;
     public float accelerateSpeed;
